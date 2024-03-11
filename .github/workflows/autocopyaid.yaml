@@ -1,0 +1,44 @@
+name: Automatic AI copyediting with CopyAid
+
+on:
+  push:
+    branches: [main]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  ai-revise:
+    name: AI Revise
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: "Prepare fresh start copyedits branch"
+        run: |
+          git config user.name  "AI copyeditor"
+          git config user.email "<>"
+          git fetch origin copyedits || git branch copyedits
+          git switch -c freshstart
+          git merge -s ours -m "ignore old copyedits" copyedits
+          git switch copyedits
+          git merge freshstart
+          git status
+      - name: Install CopyAid
+        run: |
+          pip install copyaid
+      - name: Light copyedit
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: copyaid stomp content/*
+      - name: "Commit AI copyedits"
+        shell: bash
+        run: |
+          git add content
+          git commit -m "AI copyedits"
+          git push origin copyedits
+
